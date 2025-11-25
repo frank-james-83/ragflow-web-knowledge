@@ -105,3 +105,55 @@
     padding: 0 16px;
   }
 }
+
+/* 在现有CSS中添加 */
+.header-content {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 管理功能样式 */
+.knowledge-card .ant-card-actions {
+  background: #fafafa;
+}
+
+.knowledge-card .ant-card-actions > li {
+  margin: 8px 0;
+}
+
+.knowledge-card .ant-card-actions .anticon {
+  font-size: 16px;
+  transition: color 0.3s;
+}
+
+.knowledge-card .ant-card-actions .anticon-edit:hover {
+  color: #1890ff;
+}
+
+.knowledge-card .ant-card-actions .anticon-delete:hover {
+  color: #ff4d4f;
+}
+
+/* 状态标签样式 */
+.status-badge {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: normal;
+}
+
+.status-active {
+  background: #f6ffed;
+  border: 1px solid #b7eb8f;
+  color: #52c41a;
+}
+
+.status-inactive {
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  color: #ff4d4f;
+}

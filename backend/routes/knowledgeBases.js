@@ -1,15 +1,23 @@
-// 在 backend/routes/knowledgeBases.js 顶部添加Prisma引入
+// backend/routes/knowledgeBases.js
+const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const router = express.Router();
+
 const prisma = new PrismaClient();
 
-// 修改获取知识库的路由，连接真实数据库
+// 获取所有知识库（支持搜索和分页）
 router.get('/', async (req, res) => {
   try {
-    console.log('📥 收到获取知识库请求，查询参数:', req.query);
+    console.log('📥 收到获取知识库请求');
 
-    const { search, page = 1, limit = 12 } = req.query;
+    const { search, page = 1, limit = 12, includeInactive = false } = req.query;
 
-    let where = { isActive: true };
+    let where = {};
+
+    // 如果不包含禁用项，只查询活跃的
+    if (includeInactive !== 'true') {
+      where.isActive = true;
+    }
 
     if (search && search.trim() !== '') {
       where.OR = [
@@ -18,12 +26,29 @@ router.get('/', async (req, res) => {
       ];
     }
 
-    // 使用Prisma从数据库获取真实数据
+    // 获取总数用于分页
+    const total = await prisma.knowledgeBasePublish.count({ where });
+
+    // 获取数据
     const knowledgeBases = await prisma.knowledgeBasePublish.findMany({
       where,
       skip: (parseInt(page) - 1) * parseInt(limit),
       take: parseInt(limit),
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        iconUrl: true,
+        embedCode: true,
+        ragflowKbId: true,
+        ragflowChatflowId: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        isActive: true,
+        viewCount: true
+      }
     });
 
     console.log(`✅ 从数据库找到 ${knowledgeBases.length} 个知识库`);
@@ -34,79 +59,112 @@ router.get('/', async (req, res) => {
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: knowledgeBases.length
+        total,
+        totalPages: Math.ceil(total / parseInt(limit))
       }
     });
 
   } catch (error) {
     console.error('❌ 数据库查询错误:', error);
-    // 如果数据库查询失败，返回模拟数据作为降级方案
-    const mockData = [
-      {
-        id: '1',
-        title: '产品使用手册',
-        description: '包含产品的详细使用说明和常见问题解答',
-        iconUrl: null,
-        viewCount: 156,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: '2',
-        title: '技术文档库',
-        description: '技术架构、API文档和开发指南',
-        iconUrl: null,
-        viewCount: 89,
-        createdAt: new Date().toISOString()
-      }
-    ];
-
-    res.json({
-      success: true,
-      data: mockData,
-      message: '使用模拟数据（数据库连接中）'
+    res.status(500).json({
+      success: false,
+      error: '获取知识库失败: ' + error.message
     });
   }
 });
 
+// 根据ID获取单个知识库
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
 
-// 在 backend/routes/knowledgeBases.js 中添加创建路由
+    console.log(`📥 获取单个知识库: ${id}`);
+
+    const knowledgeBase = await prisma.knowledgeBasePublish.findUnique({
+      where: { id }
+    });
+
+    if (!knowledgeBase) {
+      return res.status(404).json({
+        success: false,
+        error: '知识库不存在'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: knowledgeBase
+    });
+
+  } catch (error) {
+    console.error('❌ 获取知识库错误:', error);
+    res.status(500).json({
+      success: false,
+      error: '获取知识库失败: ' + error.message
+    });
+  }
+});
+
+// 创建知识库
 router.post('/create', async (req, res) => {
+  console.log('🔍 开始处理创建请求...');
+
   try {
     const {
       title,
       description,
       iconUrl,
       embedCode,
-      ragflowKbId,
-      ragflowChatflowId
+      isActive = true
     } = req.body;
 
-    console.log('📥 收到创建知识库请求:', { title, description });
+    console.log('📥 收到请求数据:', JSON.stringify(req.body, null, 2));
 
     // 基础验证
     if (!title || !embedCode) {
+      console.log('❌ 验证失败: 标题或嵌入代码为空');
       return res.status(400).json({
         success: false,
         error: '标题和嵌入代码是必填项'
       });
     }
 
-    // 使用Prisma创建记录
+    console.log('🔗 尝试连接数据库...');
+
+    // 使用真实用户ID
+    const existingUserId = '39f3883ec4e611f096e996fe0646053a';
+    console.log('👤 使用用户ID:', existingUserId);
+
+    // 检查标题是否已存在
+    const existing = await prisma.knowledgeBasePublish.findFirst({
+      where: { title: title.trim() }
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        error: '标题已存在，请使用不同的标题'
+      });
+    }
+
+    // 创建记录
     const publishItem = await prisma.knowledgeBasePublish.create({
       data: {
-        title,
-        description: description || '',
+        title: title.trim(),
+        description: (description || '').trim(),
         iconUrl: iconUrl || null,
-        embedCode,
-        ragflowKbId: ragflowKbId || 'default',
-        ragflowChatflowId: ragflowChatflowId || 'default',
-        createdBy: 'admin', // 暂时硬编码
-        isActive: true,
-        viewCount: 0
+        embedCode: embedCode.trim(),
+        ragflowKbId: 'default-kb-id',
+        ragflowChatflowId: 'default-chat-id',
+        createdBy: existingUserId,
+        isActive: isActive !== false,
+        viewCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
     });
 
-    console.log('✅ 创建知识库成功:', publishItem.id);
+    console.log('✅ 数据库创建成功，ID:', publishItem.id);
 
     res.json({
       success: true,
@@ -115,12 +173,276 @@ router.post('/create', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ 创建知识库错误:', error);
+    console.error('❌ 创建过程中发生错误:');
+    console.error('错误信息:', error.message);
+    console.error('错误代码:', error.code);
+
+    let errorMessage = '创建知识库失败';
+
+    if (error.code === 'P2002') {
+      errorMessage = '数据冲突，请检查输入内容';
+    }
+
     res.status(500).json({
       success: false,
-      error: '创建知识库失败: ' + error.message
+      error: errorMessage,
+      debug: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
+});
+
+// 更新知识库
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      title,
+      description,
+      iconUrl,
+      embedCode,
+      isActive,
+      viewCount
+    } = req.body;
+
+    console.log(`📥 更新知识库: ${id}`, req.body);
+
+    // 检查知识库是否存在
+    const existing = await prisma.knowledgeBasePublish.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: '知识库不存在'
+      });
+    }
+
+    // 如果更新标题，检查是否与其他记录冲突
+    if (title && title !== existing.title) {
+      const titleExists = await prisma.knowledgeBasePublish.findFirst({
+        where: {
+          title: title.trim(),
+          NOT: { id }
+        }
+      });
+
+      if (titleExists) {
+        return res.status(400).json({
+          success: false,
+          error: '标题已存在，请使用不同的标题'
+        });
+      }
+    }
+
+    // 构建更新数据
+    const updateData = {
+      updatedAt: new Date()
+    };
+
+    if (title !== undefined) updateData.title = title.trim();
+    if (description !== undefined) updateData.description = description.trim();
+    if (iconUrl !== undefined) updateData.iconUrl = iconUrl;
+    if (embedCode !== undefined) updateData.embedCode = embedCode.trim();
+    if (isActive !== undefined) updateData.isActive = isActive;
+    if (viewCount !== undefined) updateData.viewCount = parseInt(viewCount);
+
+    // 执行更新
+    const updatedItem = await prisma.knowledgeBasePublish.update({
+      where: { id },
+      data: updateData
+    });
+
+    console.log('✅ 知识库更新成功:', id);
+
+    res.json({
+      success: true,
+      data: updatedItem,
+      message: '知识库更新成功'
+    });
+
+  } catch (error) {
+    console.error('❌ 更新知识库错误:', error);
+
+    let errorMessage = '更新知识库失败';
+
+    if (error.code === 'P2025') {
+      errorMessage = '知识库不存在';
+    }
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      debug: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// 部分更新知识库（用于状态切换等）
+router.patch('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    console.log(`📥 部分更新知识库: ${id}`, updateData);
+
+    // 检查知识库是否存在
+    const existing = await prisma.knowledgeBasePublish.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: '知识库不存在'
+      });
+    }
+
+    // 添加更新时间
+    updateData.updatedAt = new Date();
+
+    // 执行更新
+    const updatedItem = await prisma.knowledgeBasePublish.update({
+      where: { id },
+      data: updateData
+    });
+
+    console.log('✅ 知识库部分更新成功:', id);
+
+    res.json({
+      success: true,
+      data: updatedItem,
+      message: '更新成功'
+    });
+
+  } catch (error) {
+    console.error('❌ 部分更新知识库错误:', error);
+    res.status(500).json({
+      success: false,
+      error: '更新失败: ' + error.message
+    });
+  }
+});
+
+// 删除知识库
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🗑️ 删除知识库: ${id}`);
+
+    // 检查知识库是否存在
+    const existing = await prisma.knowledgeBasePublish.findUnique({
+      where: { id }
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        success: false,
+        error: '知识库不存在'
+      });
+    }
+
+    // 执行删除
+    await prisma.knowledgeBasePublish.delete({
+      where: { id }
+    });
+
+    console.log('✅ 知识库删除成功:', id);
+
+    res.json({
+      success: true,
+      message: '知识库删除成功'
+    });
+
+  } catch (error) {
+    console.error('❌ 删除知识库错误:', error);
+
+    let errorMessage = '删除知识库失败';
+
+    if (error.code === 'P2025') {
+      errorMessage = '知识库不存在';
+    }
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage
+    });
+  }
+});
+
+// 批量操作
+router.post('/batch', async (req, res) => {
+  try {
+    const { action, ids } = req.body;
+
+    console.log(`🔄 批量操作: ${action}`, ids);
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: '请提供有效的ID列表'
+      });
+    }
+
+    let result;
+    let message = '';
+
+    switch (action) {
+      case 'activate':
+        result = await prisma.knowledgeBasePublish.updateMany({
+          where: { id: { in: ids } },
+          data: { isActive: true, updatedAt: new Date() }
+        });
+        message = `已启用 ${result.count} 个知识库`;
+        break;
+
+      case 'deactivate':
+        result = await prisma.knowledgeBasePublish.updateMany({
+          where: { id: { in: ids } },
+          data: { isActive: false, updatedAt: new Date() }
+        });
+        message = `已禁用 ${result.count} 个知识库`;
+        break;
+
+      case 'delete':
+        result = await prisma.knowledgeBasePublish.deleteMany({
+          where: { id: { in: ids } }
+        });
+        message = `已删除 ${result.count} 个知识库`;
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          error: '不支持的操作类型'
+        });
+    }
+
+    console.log(`✅ 批量操作成功: ${message}`);
+
+    res.json({
+      success: true,
+      data: result,
+      message
+    });
+
+  } catch (error) {
+    console.error('❌ 批量操作错误:', error);
+    res.status(500).json({
+      success: false,
+      error: '批量操作失败: ' + error.message
+    });
+  }
+});
+
+// 错误处理中间件
+router.use((error, req, res, next) => {
+  console.error('路由错误:', error);
+  res.status(500).json({
+    success: false,
+    error: '服务器内部错误'
+  });
 });
 
 module.exports = router;

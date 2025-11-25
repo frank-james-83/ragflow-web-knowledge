@@ -1,4 +1,4 @@
-// backend/app.js
+// backend/app.js - 简化版本
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -21,31 +21,8 @@ app.get('/health', (req, res) => {
     });
 });
 
-// 添加知识库路由（带错误处理）
-try {
-    const knowledgeBasesRouter = require('./routes/knowledgeBases');
-    app.use('/api/knowledge-bases', knowledgeBasesRouter);
-    console.log('✅ 知识库路由加载成功');
-} catch (error) {
-    console.error('❌ 加载知识库路由失败:', error.message);
-    // 提供降级路由
-    app.use('/api/knowledge-bases', (req, res) => {
-        res.json({
-            success: true,
-            message: '知识库功能正在初始化...',
-            data: []
-        });
-    });
-}
-
-// 测试路由
-app.get('/api/test', (req, res) => {
-    res.json({
-        success: true,
-        message: '测试路由正常工作',
-        data: { test: 'ok' }
-    });
-});
+// 基础知识库路由
+app.use('/api/knowledge-bases', require('./routes/knowledgeBases'));
 
 // 404处理
 app.use('*', (req, res) => {
@@ -55,14 +32,21 @@ app.use('*', (req, res) => {
     });
 });
 
+// 错误处理中间件
+app.use((error, req, res, next) => {
+    console.error('服务器错误:', error);
+    res.status(500).json({
+        success: false,
+        error: '内部服务器错误'
+    });
+});
+
 const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
     console.log(`🚀 服务器运行在端口 ${PORT}`);
     console.log(`📊 环境: ${process.env.NODE_ENV}`);
     console.log(`🔗 健康检查: http://localhost:${PORT}/health`);
-    console.log(`🔗 测试路由: http://localhost:${PORT}/api/test`);
-    console.log(`🔗 知识库API: http://localhost:${PORT}/api/knowledge-bases`);
 });
 
 module.exports = app;
