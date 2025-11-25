@@ -1,0 +1,698 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model KnowledgeBasePublish {
+  id                     String                   @id @default(cuid()) @map("id") @db.VarChar(50)
+  title                  String                   @map("title") @db.VarChar(200)
+  description            String?                  @map("description") @db.Text
+  iconUrl                String?                  @map("icon_url") @db.VarChar(500)
+  embedCode              String                   @map("embed_code") @db.Text
+  ragflowKbId            String                   @map("ragflow_kb_id") @db.VarChar(50)
+  ragflowChatflowId      String                   @map("ragflow_chatflow_id") @db.VarChar(50)
+  createdBy              String                   @map("created_by") @db.VarChar(50)
+  createdAt              DateTime?                @default(now()) @map("created_at") @db.Timestamp(0)
+  updatedAt              DateTime?                @default(now()) @map("updated_at") @db.Timestamp(0)
+  isActive               Boolean?                 @default(true) @map("is_active")
+  viewCount              Int?                     @default(0) @map("view_count")
+  kb_publish_permissions kb_publish_permissions[]
+  user                   user                     @relation(fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "knowledge_base_publish_ibfk_1")
+
+  @@index([createdBy], map: "created_by")
+  @@map("knowledge_base_publish")
+}
+
+model api_4_conversation {
+  id          String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  dialog_id   String    @db.VarChar(32)
+  user_id     String    @db.VarChar(255)
+  message     String?   @db.LongText
+  reference   String?   @db.LongText
+  tokens      Int
+  source      String?   @db.VarChar(16)
+  dsl         String?   @db.LongText
+  duration    Float     @db.Float
+  round       Int
+  thumb_up    Int
+  errors      String?   @db.Text
+
+  @@index([create_date], map: "api4conversation_create_date")
+  @@index([create_time], map: "api4conversation_create_time")
+  @@index([dialog_id], map: "api4conversation_dialog_id")
+  @@index([duration], map: "api4conversation_duration")
+  @@index([round], map: "api4conversation_round")
+  @@index([source], map: "api4conversation_source")
+  @@index([thumb_up], map: "api4conversation_thumb_up")
+  @@index([update_date], map: "api4conversation_update_date")
+  @@index([update_time], map: "api4conversation_update_time")
+  @@index([user_id], map: "api4conversation_user_id")
+}
+
+model api_token {
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  tenant_id   String    @db.VarChar(32)
+  token       String    @db.VarChar(255)
+  dialog_id   String?   @db.VarChar(32)
+  source      String?   @db.VarChar(16)
+  beta        String?   @db.VarChar(255)
+
+  @@id([tenant_id, token])
+  @@index([beta], map: "apitoken_beta")
+  @@index([create_date], map: "apitoken_create_date")
+  @@index([create_time], map: "apitoken_create_time")
+  @@index([dialog_id], map: "apitoken_dialog_id")
+  @@index([source], map: "apitoken_source")
+  @@index([tenant_id], map: "apitoken_tenant_id")
+  @@index([token], map: "apitoken_token")
+  @@index([update_date], map: "apitoken_update_date")
+  @@index([update_time], map: "apitoken_update_time")
+}
+
+model canvas_template {
+  id              String    @id @db.VarChar(32)
+  create_time     BigInt?
+  create_date     DateTime? @db.DateTime(0)
+  update_time     BigInt?
+  update_date     DateTime? @db.DateTime(0)
+  avatar          String?   @db.Text
+  title           String?   @db.LongText
+  description     String?   @db.LongText
+  canvas_type     String?   @db.VarChar(32)
+  canvas_category String    @db.VarChar(32)
+  dsl             String?   @db.LongText
+
+  @@index([canvas_category], map: "canvastemplate_canvas_category")
+  @@index([canvas_type], map: "canvastemplate_canvas_type")
+  @@index([create_date], map: "canvastemplate_create_date")
+  @@index([create_time], map: "canvastemplate_create_time")
+  @@index([update_date], map: "canvastemplate_update_date")
+  @@index([update_time], map: "canvastemplate_update_time")
+}
+
+model conversation {
+  id          String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  dialog_id   String    @db.VarChar(32)
+  name        String?   @db.VarChar(255)
+  message     String?   @db.LongText
+  reference   String?   @db.LongText
+  user_id     String?   @db.VarChar(255)
+
+  @@index([create_date], map: "conversation_create_date")
+  @@index([create_time], map: "conversation_create_time")
+  @@index([dialog_id], map: "conversation_dialog_id")
+  @@index([name], map: "conversation_name")
+  @@index([update_date], map: "conversation_update_date")
+  @@index([update_time], map: "conversation_update_time")
+  @@index([user_id], map: "conversation_user_id")
+}
+
+model dialog {
+  id                       String    @id @db.VarChar(32)
+  create_time              BigInt?
+  create_date              DateTime? @db.DateTime(0)
+  update_time              BigInt?
+  update_date              DateTime? @db.DateTime(0)
+  tenant_id                String    @db.VarChar(32)
+  name                     String?   @db.VarChar(255)
+  description              String?   @db.Text
+  icon                     String?   @db.Text
+  language                 String?   @db.VarChar(32)
+  llm_id                   String    @db.VarChar(128)
+  llm_setting              String    @db.LongText
+  prompt_type              String    @db.VarChar(16)
+  prompt_config            String    @db.LongText
+  meta_data_filter         String?   @db.LongText
+  similarity_threshold     Float     @db.Float
+  vector_similarity_weight Float     @db.Float
+  top_n                    Int
+  top_k                    Int
+  do_refer                 String    @db.VarChar(1)
+  rerank_id                String    @db.VarChar(128)
+  kb_ids                   String    @db.LongText
+  status                   String?   @db.VarChar(1)
+
+  @@index([create_date], map: "dialog_create_date")
+  @@index([create_time], map: "dialog_create_time")
+  @@index([language], map: "dialog_language")
+  @@index([name], map: "dialog_name")
+  @@index([prompt_type], map: "dialog_prompt_type")
+  @@index([status], map: "dialog_status")
+  @@index([tenant_id], map: "dialog_tenant_id")
+  @@index([update_date], map: "dialog_update_date")
+  @@index([update_time], map: "dialog_update_time")
+}
+
+model document {
+  id               String    @id @db.VarChar(32)
+  create_time      BigInt?
+  create_date      DateTime? @db.DateTime(0)
+  update_time      BigInt?
+  update_date      DateTime? @db.DateTime(0)
+  thumbnail        String?   @db.Text
+  kb_id            String    @db.VarChar(256)
+  parser_id        String    @db.VarChar(32)
+  pipeline_id      String?   @db.VarChar(32)
+  parser_config    String    @db.LongText
+  source_type      String    @db.VarChar(128)
+  type             String    @db.VarChar(32)
+  created_by       String    @db.VarChar(32)
+  name             String?   @db.VarChar(255)
+  location         String?   @db.VarChar(255)
+  size             Int
+  token_num        Int
+  chunk_num        Int
+  progress         Float     @db.Float
+  progress_msg     String?   @db.Text
+  process_begin_at DateTime? @db.DateTime(0)
+  process_duration Float     @db.Float
+  meta_fields      String?   @db.LongText
+  suffix           String    @db.VarChar(32)
+  run              String?   @db.VarChar(1)
+  status           String?   @db.VarChar(1)
+
+  @@index([chunk_num], map: "document_chunk_num")
+  @@index([create_date], map: "document_create_date")
+  @@index([create_time], map: "document_create_time")
+  @@index([created_by], map: "document_created_by")
+  @@index([kb_id], map: "document_kb_id")
+  @@index([location], map: "document_location")
+  @@index([name], map: "document_name")
+  @@index([parser_id], map: "document_parser_id")
+  @@index([pipeline_id], map: "document_pipeline_id")
+  @@index([process_begin_at], map: "document_process_begin_at")
+  @@index([progress], map: "document_progress")
+  @@index([run], map: "document_run")
+  @@index([size], map: "document_size")
+  @@index([source_type], map: "document_source_type")
+  @@index([status], map: "document_status")
+  @@index([suffix], map: "document_suffix")
+  @@index([token_num], map: "document_token_num")
+  @@index([type], map: "document_type")
+  @@index([update_date], map: "document_update_date")
+  @@index([update_time], map: "document_update_time")
+}
+
+model file {
+  id          String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  parent_id   String    @db.VarChar(32)
+  tenant_id   String    @db.VarChar(32)
+  created_by  String    @db.VarChar(32)
+  name        String    @db.VarChar(255)
+  location    String?   @db.VarChar(255)
+  size        Int
+  type        String    @db.VarChar(32)
+  source_type String    @db.VarChar(128)
+
+  @@index([create_date], map: "file_create_date")
+  @@index([create_time], map: "file_create_time")
+  @@index([created_by], map: "file_created_by")
+  @@index([location], map: "file_location")
+  @@index([name], map: "file_name")
+  @@index([parent_id], map: "file_parent_id")
+  @@index([size], map: "file_size")
+  @@index([source_type], map: "file_source_type")
+  @@index([tenant_id], map: "file_tenant_id")
+  @@index([type], map: "file_type")
+  @@index([update_date], map: "file_update_date")
+  @@index([update_time], map: "file_update_time")
+}
+
+model file2document {
+  id          String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  file_id     String?   @db.VarChar(32)
+  document_id String?   @db.VarChar(32)
+
+  @@index([create_date], map: "file2document_create_date")
+  @@index([create_time], map: "file2document_create_time")
+  @@index([document_id], map: "file2document_document_id")
+  @@index([file_id], map: "file2document_file_id")
+  @@index([update_date], map: "file2document_update_date")
+  @@index([update_time], map: "file2document_update_time")
+}
+
+model invitation_code {
+  id          String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  code        String    @db.VarChar(32)
+  visit_time  DateTime? @db.DateTime(0)
+  user_id     String?   @db.VarChar(32)
+  tenant_id   String?   @db.VarChar(32)
+  status      String?   @db.VarChar(1)
+
+  @@index([code], map: "invitationcode_code")
+  @@index([create_date], map: "invitationcode_create_date")
+  @@index([create_time], map: "invitationcode_create_time")
+  @@index([status], map: "invitationcode_status")
+  @@index([tenant_id], map: "invitationcode_tenant_id")
+  @@index([update_date], map: "invitationcode_update_date")
+  @@index([update_time], map: "invitationcode_update_time")
+  @@index([user_id], map: "invitationcode_user_id")
+  @@index([visit_time], map: "invitationcode_visit_time")
+}
+
+model kb_publish_permissions {
+  id                     String                                   @id @db.VarChar(50)
+  kb_publish_id          String                                   @db.VarChar(50)
+  user_id                String                                   @db.VarChar(50)
+  permission_level       kb_publish_permissions_permission_level? @default(view)
+  created_at             DateTime?                                @default(now()) @db.Timestamp(0)
+  knowledge_base_publish KnowledgeBasePublish                     @relation(fields: [kb_publish_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "kb_publish_permissions_ibfk_1")
+  user                   user                                     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "kb_publish_permissions_ibfk_2")
+
+  @@index([kb_publish_id], map: "kb_publish_id")
+  @@index([user_id], map: "user_id")
+}
+
+model knowledgebase {
+  id                       String    @id @db.VarChar(32)
+  create_time              BigInt?
+  create_date              DateTime? @db.DateTime(0)
+  update_time              BigInt?
+  update_date              DateTime? @db.DateTime(0)
+  avatar                   String?   @db.Text
+  tenant_id                String    @db.VarChar(32)
+  name                     String    @db.VarChar(128)
+  language                 String?   @db.VarChar(32)
+  description              String?   @db.Text
+  embd_id                  String    @db.VarChar(128)
+  permission               String    @db.VarChar(16)
+  created_by               String    @db.VarChar(32)
+  doc_num                  Int
+  token_num                Int
+  chunk_num                Int
+  similarity_threshold     Float     @db.Float
+  vector_similarity_weight Float     @db.Float
+  parser_id                String    @db.VarChar(32)
+  pipeline_id              String?   @db.VarChar(32)
+  parser_config            String    @db.LongText
+  pagerank                 Int
+  graphrag_task_id         String?   @db.VarChar(32)
+  graphrag_task_finish_at  DateTime? @db.DateTime(0)
+  raptor_task_id           String?   @db.VarChar(32)
+  raptor_task_finish_at    DateTime? @db.DateTime(0)
+  mindmap_task_id          String?   @db.VarChar(32)
+  mindmap_task_finish_at   DateTime? @db.DateTime(0)
+  status                   String?   @db.VarChar(1)
+
+  @@index([chunk_num], map: "knowledgebase_chunk_num")
+  @@index([create_date], map: "knowledgebase_create_date")
+  @@index([create_time], map: "knowledgebase_create_time")
+  @@index([created_by], map: "knowledgebase_created_by")
+  @@index([doc_num], map: "knowledgebase_doc_num")
+  @@index([embd_id], map: "knowledgebase_embd_id")
+  @@index([graphrag_task_id], map: "knowledgebase_graphrag_task_id")
+  @@index([language], map: "knowledgebase_language")
+  @@index([mindmap_task_id], map: "knowledgebase_mindmap_task_id")
+  @@index([name], map: "knowledgebase_name")
+  @@index([parser_id], map: "knowledgebase_parser_id")
+  @@index([permission], map: "knowledgebase_permission")
+  @@index([pipeline_id], map: "knowledgebase_pipeline_id")
+  @@index([raptor_task_id], map: "knowledgebase_raptor_task_id")
+  @@index([similarity_threshold], map: "knowledgebase_similarity_threshold")
+  @@index([status], map: "knowledgebase_status")
+  @@index([tenant_id], map: "knowledgebase_tenant_id")
+  @@index([token_num], map: "knowledgebase_token_num")
+  @@index([update_date], map: "knowledgebase_update_date")
+  @@index([update_time], map: "knowledgebase_update_time")
+  @@index([vector_similarity_weight], map: "knowledgebase_vector_similarity_weight")
+}
+
+model llm {
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  llm_name    String    @db.VarChar(128)
+  model_type  String    @db.VarChar(128)
+  fid         String    @db.VarChar(128)
+  max_tokens  Int
+  tags        String    @db.VarChar(255)
+  is_tools    Boolean
+  status      String?   @db.VarChar(1)
+
+  @@id([fid, llm_name])
+  @@index([create_date], map: "llm_create_date")
+  @@index([create_time], map: "llm_create_time")
+  @@index([fid], map: "llm_fid")
+  @@index([llm_name], map: "llm_llm_name")
+  @@index([model_type], map: "llm_model_type")
+  @@index([status], map: "llm_status")
+  @@index([tags], map: "llm_tags")
+  @@index([update_date], map: "llm_update_date")
+  @@index([update_time], map: "llm_update_time")
+}
+
+model llm_factories {
+  name        String    @id @db.VarChar(128)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  logo        String?   @db.Text
+  tags        String    @db.VarChar(255)
+  status      String?   @db.VarChar(1)
+
+  @@index([create_date], map: "llmfactories_create_date")
+  @@index([create_time], map: "llmfactories_create_time")
+  @@index([status], map: "llmfactories_status")
+  @@index([tags], map: "llmfactories_tags")
+  @@index([update_date], map: "llmfactories_update_date")
+  @@index([update_time], map: "llmfactories_update_time")
+}
+
+model mcp_server {
+  id          String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  name        String    @db.VarChar(255)
+  tenant_id   String    @db.VarChar(32)
+  url         String    @db.VarChar(2048)
+  server_type String    @db.VarChar(32)
+  description String?   @db.Text
+  variables   String?   @db.LongText
+  headers     String?   @db.LongText
+
+  @@index([create_date], map: "mcpserver_create_date")
+  @@index([create_time], map: "mcpserver_create_time")
+  @@index([tenant_id], map: "mcpserver_tenant_id")
+  @@index([update_date], map: "mcpserver_update_date")
+  @@index([update_time], map: "mcpserver_update_time")
+}
+
+model pipeline_operation_log {
+  id               String    @id @db.VarChar(32)
+  create_time      BigInt?
+  create_date      DateTime? @db.DateTime(0)
+  update_time      BigInt?
+  update_date      DateTime? @db.DateTime(0)
+  document_id      String    @db.VarChar(32)
+  tenant_id        String    @db.VarChar(32)
+  kb_id            String    @db.VarChar(32)
+  pipeline_id      String?   @db.VarChar(32)
+  pipeline_title   String?   @db.VarChar(32)
+  parser_id        String    @db.VarChar(32)
+  document_name    String    @db.VarChar(255)
+  document_suffix  String    @db.VarChar(255)
+  document_type    String    @db.VarChar(255)
+  source_from      String    @db.VarChar(255)
+  progress         Float     @db.Float
+  progress_msg     String?   @db.Text
+  process_begin_at DateTime? @db.DateTime(0)
+  process_duration Float     @db.Float
+  dsl              String?   @db.LongText
+  task_type        String    @db.VarChar(32)
+  operation_status String    @db.VarChar(32)
+  avatar           String?   @db.Text
+  status           String?   @db.VarChar(1)
+
+  @@index([create_date], map: "pipelineoperationlog_create_date")
+  @@index([create_time], map: "pipelineoperationlog_create_time")
+  @@index([document_id], map: "pipelineoperationlog_document_id")
+  @@index([kb_id], map: "pipelineoperationlog_kb_id")
+  @@index([parser_id], map: "pipelineoperationlog_parser_id")
+  @@index([pipeline_id], map: "pipelineoperationlog_pipeline_id")
+  @@index([pipeline_title], map: "pipelineoperationlog_pipeline_title")
+  @@index([process_begin_at], map: "pipelineoperationlog_process_begin_at")
+  @@index([progress], map: "pipelineoperationlog_progress")
+  @@index([status], map: "pipelineoperationlog_status")
+  @@index([tenant_id], map: "pipelineoperationlog_tenant_id")
+  @@index([update_date], map: "pipelineoperationlog_update_date")
+  @@index([update_time], map: "pipelineoperationlog_update_time")
+}
+
+model search {
+  id            String    @id @db.VarChar(32)
+  create_time   BigInt?
+  create_date   DateTime? @db.DateTime(0)
+  update_time   BigInt?
+  update_date   DateTime? @db.DateTime(0)
+  avatar        String?   @db.Text
+  tenant_id     String    @db.VarChar(32)
+  name          String    @db.VarChar(128)
+  description   String?   @db.Text
+  created_by    String    @db.VarChar(32)
+  search_config String    @db.LongText
+  status        String?   @db.VarChar(1)
+
+  @@index([create_date], map: "search_create_date")
+  @@index([create_time], map: "search_create_time")
+  @@index([created_by], map: "search_created_by")
+  @@index([name], map: "search_name")
+  @@index([status], map: "search_status")
+  @@index([tenant_id], map: "search_tenant_id")
+  @@index([update_date], map: "search_update_date")
+  @@index([update_time], map: "search_update_time")
+}
+
+model task {
+  id               String    @id @db.VarChar(32)
+  create_time      BigInt?
+  create_date      DateTime? @db.DateTime(0)
+  update_time      BigInt?
+  update_date      DateTime? @db.DateTime(0)
+  doc_id           String    @db.VarChar(32)
+  from_page        Int
+  to_page          Int
+  task_type        String    @db.VarChar(32)
+  priority         Int
+  begin_at         DateTime? @db.DateTime(0)
+  process_duration Float     @db.Float
+  progress         Float     @db.Float
+  progress_msg     String?   @db.Text
+  retry_count      Int
+  digest           String?   @db.Text
+  chunk_ids        String?   @db.LongText
+
+  @@index([begin_at], map: "task_begin_at")
+  @@index([create_date], map: "task_create_date")
+  @@index([create_time], map: "task_create_time")
+  @@index([doc_id], map: "task_doc_id")
+  @@index([progress], map: "task_progress")
+  @@index([update_date], map: "task_update_date")
+  @@index([update_time], map: "task_update_time")
+}
+
+model tenant {
+  id          String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  name        String?   @db.VarChar(100)
+  public_key  String?   @db.VarChar(255)
+  llm_id      String    @db.VarChar(128)
+  embd_id     String    @db.VarChar(128)
+  asr_id      String    @db.VarChar(128)
+  img2txt_id  String    @db.VarChar(128)
+  rerank_id   String    @db.VarChar(128)
+  tts_id      String?   @db.VarChar(256)
+  parser_ids  String    @db.VarChar(256)
+  credit      Int
+  status      String?   @db.VarChar(1)
+
+  @@index([asr_id], map: "tenant_asr_id")
+  @@index([create_date], map: "tenant_create_date")
+  @@index([create_time], map: "tenant_create_time")
+  @@index([credit], map: "tenant_credit")
+  @@index([embd_id], map: "tenant_embd_id")
+  @@index([img2txt_id], map: "tenant_img2txt_id")
+  @@index([llm_id], map: "tenant_llm_id")
+  @@index([name], map: "tenant_name")
+  @@index([parser_ids], map: "tenant_parser_ids")
+  @@index([public_key], map: "tenant_public_key")
+  @@index([rerank_id], map: "tenant_rerank_id")
+  @@index([status], map: "tenant_status")
+  @@index([tts_id], map: "tenant_tts_id")
+  @@index([update_date], map: "tenant_update_date")
+  @@index([update_time], map: "tenant_update_time")
+}
+
+model tenant_langfuse {
+  tenant_id   String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  secret_key  String    @db.VarChar(2048)
+  public_key  String    @db.VarChar(2048)
+  host        String    @db.VarChar(128)
+
+  @@index([create_date], map: "tenantlangfuse_create_date")
+  @@index([create_time], map: "tenantlangfuse_create_time")
+  @@index([host], map: "tenantlangfuse_host")
+  @@index([public_key(length: 768)], map: "tenantlangfuse_public_key")
+  @@index([secret_key(length: 768)], map: "tenantlangfuse_secret_key")
+  @@index([update_date], map: "tenantlangfuse_update_date")
+  @@index([update_time], map: "tenantlangfuse_update_time")
+}
+
+model tenant_llm {
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  tenant_id   String    @db.VarChar(32)
+  llm_factory String    @db.VarChar(128)
+  model_type  String?   @db.VarChar(128)
+  llm_name    String    @db.VarChar(128)
+  api_key     String?   @db.Text
+  api_base    String?   @db.VarChar(255)
+  max_tokens  Int
+  used_tokens Int
+
+  @@id([tenant_id, llm_factory, llm_name])
+  @@index([create_date], map: "tenantllm_create_date")
+  @@index([create_time], map: "tenantllm_create_time")
+  @@index([llm_factory], map: "tenantllm_llm_factory")
+  @@index([llm_name], map: "tenantllm_llm_name")
+  @@index([max_tokens], map: "tenantllm_max_tokens")
+  @@index([model_type], map: "tenantllm_model_type")
+  @@index([tenant_id], map: "tenantllm_tenant_id")
+  @@index([update_date], map: "tenantllm_update_date")
+  @@index([update_time], map: "tenantllm_update_time")
+  @@index([used_tokens], map: "tenantllm_used_tokens")
+}
+
+model user {
+  id                     String                   @id @db.VarChar(32)
+  create_time            BigInt?
+  create_date            DateTime?                @db.DateTime(0)
+  update_time            BigInt?
+  update_date            DateTime?                @db.DateTime(0)
+  access_token           String?                  @db.VarChar(255)
+  nickname               String                   @db.VarChar(100)
+  password               String?                  @db.VarChar(255)
+  email                  String                   @db.VarChar(255)
+  avatar                 String?                  @db.Text
+  language               String?                  @db.VarChar(32)
+  color_schema           String?                  @db.VarChar(32)
+  timezone               String?                  @db.VarChar(64)
+  last_login_time        DateTime?                @db.DateTime(0)
+  is_authenticated       String                   @db.VarChar(1)
+  is_active              String                   @db.VarChar(1)
+  is_anonymous           String                   @db.VarChar(1)
+  login_channel          String?                  @db.VarChar(255)
+  status                 String?                  @db.VarChar(1)
+  is_superuser           Boolean?
+  kb_publish_permissions kb_publish_permissions[]
+  knowledge_base_publish KnowledgeBasePublish[]
+
+  @@index([access_token], map: "user_access_token")
+  @@index([color_schema], map: "user_color_schema")
+  @@index([create_date], map: "user_create_date")
+  @@index([create_time], map: "user_create_time")
+  @@index([email], map: "user_email")
+  @@index([is_active], map: "user_is_active")
+  @@index([is_anonymous], map: "user_is_anonymous")
+  @@index([is_authenticated], map: "user_is_authenticated")
+  @@index([is_superuser], map: "user_is_superuser")
+  @@index([language], map: "user_language")
+  @@index([last_login_time], map: "user_last_login_time")
+  @@index([login_channel], map: "user_login_channel")
+  @@index([nickname], map: "user_nickname")
+  @@index([password], map: "user_password")
+  @@index([status], map: "user_status")
+  @@index([timezone], map: "user_timezone")
+  @@index([update_date], map: "user_update_date")
+  @@index([update_time], map: "user_update_time")
+}
+
+model user_canvas {
+  id              String    @id @db.VarChar(32)
+  create_time     BigInt?
+  create_date     DateTime? @db.DateTime(0)
+  update_time     BigInt?
+  update_date     DateTime? @db.DateTime(0)
+  avatar          String?   @db.Text
+  user_id         String    @db.VarChar(255)
+  title           String?   @db.VarChar(255)
+  permission      String    @db.VarChar(16)
+  description     String?   @db.Text
+  canvas_type     String?   @db.VarChar(32)
+  canvas_category String    @db.VarChar(32)
+  dsl             String?   @db.LongText
+
+  @@index([canvas_category], map: "usercanvas_canvas_category")
+  @@index([canvas_type], map: "usercanvas_canvas_type")
+  @@index([create_date], map: "usercanvas_create_date")
+  @@index([create_time], map: "usercanvas_create_time")
+  @@index([permission], map: "usercanvas_permission")
+  @@index([update_date], map: "usercanvas_update_date")
+  @@index([update_time], map: "usercanvas_update_time")
+  @@index([user_id], map: "usercanvas_user_id")
+}
+
+model user_canvas_version {
+  id             String    @id @db.VarChar(32)
+  create_time    BigInt?
+  create_date    DateTime? @db.DateTime(0)
+  update_time    BigInt?
+  update_date    DateTime? @db.DateTime(0)
+  user_canvas_id String    @db.VarChar(255)
+  title          String?   @db.VarChar(255)
+  description    String?   @db.Text
+  dsl            String?   @db.LongText
+
+  @@index([create_date], map: "usercanvasversion_create_date")
+  @@index([create_time], map: "usercanvasversion_create_time")
+  @@index([update_date], map: "usercanvasversion_update_date")
+  @@index([update_time], map: "usercanvasversion_update_time")
+  @@index([user_canvas_id], map: "usercanvasversion_user_canvas_id")
+}
+
+model user_tenant {
+  id          String    @id @db.VarChar(32)
+  create_time BigInt?
+  create_date DateTime? @db.DateTime(0)
+  update_time BigInt?
+  update_date DateTime? @db.DateTime(0)
+  user_id     String    @db.VarChar(32)
+  tenant_id   String    @db.VarChar(32)
+  role        String    @db.VarChar(32)
+  invited_by  String    @db.VarChar(32)
+  status      String?   @db.VarChar(1)
+
+  @@index([create_date], map: "usertenant_create_date")
+  @@index([create_time], map: "usertenant_create_time")
+  @@index([invited_by], map: "usertenant_invited_by")
+  @@index([role], map: "usertenant_role")
+  @@index([status], map: "usertenant_status")
+  @@index([tenant_id], map: "usertenant_tenant_id")
+  @@index([update_date], map: "usertenant_update_date")
+  @@index([update_time], map: "usertenant_update_time")
+  @@index([user_id], map: "usertenant_user_id")
+}
+
+enum kb_publish_permissions_permission_level {
+  view
+  manage
+}

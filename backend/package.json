@@ -1,0 +1,28 @@
+{
+  "name": "ragflow-portal-backend",
+  "version": "1.0.0",
+  "description": "RAGFlow知识库发布门户后端",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "db:generate": "prisma generate",
+    "db:pull": "prisma db pull",
+    "db:studio": "prisma studio",
+    "test": "node test-connection.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "helmet": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.11.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7",
+    "prisma": "^5.22.0"
+  }
+}
