@@ -1,38 +1,55 @@
-// backend/middleware/auth.js - 简化版本
+// backend/middleware/auth.js
 const jwt = require('jsonwebtoken');
 const jwtConfig = require('../config/jwt');
 
-// 简化认证中间件 - 暂时跳过详细权限检查
+// 管理员权限验证
 const verifyAdmin = async (req, res, next) => {
   try {
-    // 暂时跳过详细认证，直接允许所有请求
-    // 在生产环境中需要实现完整的认证逻辑
-    console.log('🔐 管理员操作 - 简化认证通过');
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        error: '需要管理员权限'
+      });
+    }
 
-    // 设置模拟用户信息
-    req.user = {
-      id: 'admin',
-      username: 'administrator',
-      role: 'admin'
-    };
+    // 验证 token
+    const decoded = jwt.verify(token, jwtConfig.secret);
+    
+    // 检查是否为超级用户
+    if (!decoded.isSuperuser) {
+      return res.status(403).json({
+        success: false,
+        error: '权限不足，需要管理员权限'
+      });
+    }
 
+    req.user = decoded;
     next();
   } catch (error) {
-    console.error('认证错误:', error);
-    res.status(401).json({
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Token无效'
+      });
+    }
+    
+    console.error('管理员认证错误:', error);
+    res.status(500).json({
       success: false,
-      error: '认证失败'
+      error: '认证服务错误'
     });
   }
 };
 
-// 基础token验证（如果需要）
+// 基础token验证
 const verifyToken = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
-    // 如果没有token，暂时允许访问（开发环境）
-    req.user = { id: 'guest', role: 'user' };
+    // 对于公开接口，可以继续但标记为访客
+    req.user = { id: 'guest', role: 'guest' };
     return next();
   }
 
@@ -41,10 +58,17 @@ const verifyToken = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Token无效'
+      });
+    }
+    
     console.error('Token验证失败:', error);
-    res.status(401).json({
+    res.status(500).json({
       success: false,
-      error: 'Token无效'
+      error: '认证服务错误'
     });
   }
 };

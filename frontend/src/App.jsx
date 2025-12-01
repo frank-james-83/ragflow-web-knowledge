@@ -1,4 +1,4 @@
-// frontend/src/App.jsx - 添加权限控制
+// frontend/src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { Input, Card, Row, Col, Spin, message, Layout, Typography, Button, Dropdown, Space } from 'antd';
 import { SearchOutlined, BookOutlined, PlusOutlined, UserOutlined, LogoutOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -12,7 +12,8 @@ const { Title } = Typography;
 const { Search } = Input;
 const { Meta } = Card;
 
-const API_BASE = 'http://localhost:3001/api';
+// const API_BASE = 'http://localhost:3001/api';
+const API_BASE = '/sidel/api';
 
 function App() {
   const [knowledgeBases, setKnowledgeBases] = useState([]);
@@ -21,15 +22,32 @@ function App() {
   const [adminVisible, setAdminVisible] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // 检查登录状态
+  // 检查登录状态 - 只在组件挂载时执行一次
   useEffect(() => {
-    const token = localStorage.getItem('adminToken');
-    if (token) {
-      setIsLoggedIn(true);
-    }
-    fetchKnowledgeBases();
-  }, []);
+    const checkAuthStatus = async () => {
+      const token = localStorage.getItem('adminToken');
+      if (token) {
+        try {
+          // 验证 token 是否有效
+          await axios.get(`${API_BASE}/auth/verify-token`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          setIsLoggedIn(true);
+        } catch (error) {
+          // Token 无效，清除本地存储
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminUser');
+        }
+      }
+      fetchKnowledgeBases();
+    };
+
+    checkAuthStatus();
+  }, []); // 添加空依赖数组，确保只执行一次
 
   // 获取知识库列表
   const fetchKnowledgeBases = async (search = '') => {
@@ -80,31 +98,80 @@ function App() {
   };
 
   const handleCardClick = (kb) => {
+    console.log('=== 点击知识库调试信息 ===');
+    console.log('知识库对象:', kb);
+    console.log('嵌入代码:', kb.embedCode);
+
+    // 增加浏览计数
+    const updateViewCount = async () => {
+      try {
+        const token = localStorage.getItem('adminToken');
+        await axios.patch(`${API_BASE}/knowledge-bases/${kb.id}`, {
+          viewCount: (kb.viewCount || 0) + 1
+        }, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : undefined
+          }
+        });
+
+        // 更新本地状态以反映新的浏览计数
+        setKnowledgeBases(prev => prev.map(item =>
+          item.id === kb.id
+            ? { ...item, viewCount: (item.viewCount || 0) + 1 }
+            : item
+        ));
+      } catch (error) {
+        console.error('更新浏览计数失败:', error);
+      }
+    };
+
+    // 执行更新浏览计数
+    updateViewCount();
+
     if (kb.embedCode) {
-      const newWindow = window.open('', '_blank');
-      newWindow.document.write(`
+      // 尝试多种方式打开
+      const embedCode = kb.embedCode.trim();
+
+      // 方法1: 直接提取URL
+      const urlMatch = embedCode.match(/src="([^"]*)"/);
+      if (urlMatch && urlMatch[1]) {
+        const chatUrl = urlMatch[1];
+        console.log('✅ 成功提取URL:', chatUrl);
+
+        // 直接打开URL
+        window.open(chatUrl, '_blank');
+        return;
+      }
+
+      // 方法2: 创建完整页面
+      console.log('🔄 使用创建页面方式');
+      const newWindow = window.open('', '_blank', 'width=1200,height=800,scrollbars=yes');
+      if (newWindow) {
+        newWindow.document.write(`
         <!DOCTYPE html>
         <html>
           <head>
-            <title>${kb.title} - 智能助手</title>
+            <title>${kb.title}</title>
+            <meta charset="utf-8">
             <style>
-              body { margin: 0; padding: 0; font-family: sans-serif; }
-              .header { padding: 16px; background: #f5f5f5; border-bottom: 1px solid #e8e8e8; }
-              .container { width: 100vw; height: calc(100vh - 60px); }
+              body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+              .container { width: 100vw; height: 100vh; }
             </style>
           </head>
           <body>
-            <div class="header">
-              <h2 style="margin: 0;">${kb.title}</h2>
-              <p style="margin: 4px 0 0 0; color: #666;">${kb.description || ''}</p>
-            </div>
             <div class="container">
-              ${kb.embedCode}
+              ${embedCode}
             </div>
           </body>
         </html>
       `);
-      newWindow.document.close();
+        newWindow.document.close();
+      } else {
+        console.error('❌ 无法打开新窗口');
+        message.error('无法打开聊天界面，请检查浏览器弹窗设置');
+      }
+    } else {
+      message.warning(`知识库 "${kb.title}" 没有配置聊天界面`);
     }
   };
 
@@ -115,11 +182,7 @@ function App() {
     message.success('已退出登录');
   };
 
-  // 如果没有登录，显示登录页面
-  if (!isLoggedIn) {
-    return <Login onLogin={() => setIsLoggedIn(true)} />;
-  }
-
+  // 定义用户菜单项（移到使用之前）
   const userMenuItems = [
     {
       key: 'logout',
@@ -128,6 +191,42 @@ function App() {
       onClick: handleLogout
     }
   ];
+
+  const handleAdminMenuClick = () => {
+    const token = localStorage.getItem('adminToken');
+    if (!token) {
+      setShowLoginModal(true);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    console.log('登录成功');
+    setIsLoggedIn(true);
+    setShowLoginModal(false);
+  };
+
+  const handleAdminAccess = () => {
+    const token = localStorage.getItem('adminToken');
+    if (token) {
+      setIsLoggedIn(true);
+      setEditingItem(null);
+      setAdminVisible(true);
+      // 确保登录模态框关闭
+      setShowLoginModal(false);
+    } else {
+      setShowLoginModal(true);
+    }
+  };
+
+  // 显示登录模态框
+  if (showLoginModal) {
+    return (
+      <Login
+        onLogin={handleLoginSuccess}
+        onCancel={() => setShowLoginModal(false)}
+      />
+    );
+  }
 
   return (
     <>
@@ -142,16 +241,27 @@ function App() {
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => {
-                  setEditingItem(null);
-                  setAdminVisible(true);
-                }}
+                onClick={handleAdminAccess}
               >
                 发布知识库
               </Button>
 
-              <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-                <Button type="text" icon={<UserOutlined />} style={{ color: 'white' }}>
+              <Dropdown
+                menu={{ items: isLoggedIn ? userMenuItems : [] }}
+                placement="bottomRight"
+                trigger={['click']}
+                onOpenChange={(open) => {
+                  if (open && !isLoggedIn) {
+                    handleAdminMenuClick();
+                  }
+                }}
+              >
+                <Button
+                  type="text"
+                  icon={<UserOutlined />}
+                  style={{ color: 'white' }}
+                  onClick={!isLoggedIn ? handleAdminMenuClick : undefined}
+                >
                   管理员
                 </Button>
               </Dropdown>
@@ -186,6 +296,7 @@ function App() {
                     <Card
                       hoverable
                       className="knowledge-card"
+                      onClick={() => handleCardClick(kb)}
                       cover={
                         kb.iconUrl ? (
                           <img alt={kb.title} src={kb.iconUrl} style={{ height: 160, objectFit: 'cover' }} />

@@ -1,281 +1,206 @@
-// frontend/src/AdminPanel.jsx - 支持编辑功能
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Button, message, Switch, Space, Divider } from 'antd';
-import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Modal, Form, Input, Button, message, List } from 'antd';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:3001/api';
+// const API_BASE = 'http://localhost:3001/api';
+const API_BASE = '/sidel/api';
 
 const AdminPanel = ({ visible, onClose, onSuccess, editingItem }) => {
-    const [form] = Form.useForm();
-    const [loading, setLoading] = useState(false);
+  const [knowledgeBases, setKnowledgeBases] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [form] = Form.useForm();
 
-    // 当编辑项变化或模态框显示时重置表单
-    useEffect(() => {
-        if (visible) {
-            if (editingItem) {
-                // 编辑模式：填充现有数据
-                form.setFieldsValue({
-                    title: editingItem.title,
-                    description: editingItem.description,
-                    iconUrl: editingItem.iconUrl,
-                    embedCode: editingItem.embedCode,
-                    isActive: editingItem.isActive !== false // 默认为true
-                });
-            } else {
-                // 新建模式：清空表单
-                form.resetFields();
-                form.setFieldsValue({
-                    isActive: true
-                });
-            }
+  // 获取知识库列表
+  const fetchKnowledgeBases = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await axios.get(`${API_BASE}/knowledge-bases`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : undefined
         }
-    }, [visible, editingItem, form]);
+      });
+      if (response.data.success) {
+        setKnowledgeBases(response.data.data);
+      }
+    } catch (error) {
+      console.error('获取知识库失败:', error);
+    }
+  };
 
-    const handleSubmit = async (values) => {
-        setLoading(true);
-        try {
-            if (editingItem) {
-                // 编辑现有知识库
-                const response = await axios.put(`${API_BASE}/knowledge-bases/${editingItem.id}`, values);
-                if (response.data.success) {
-                    message.success('知识库更新成功！');
-                    form.resetFields();
-                    onSuccess();
-                }
-            } else {
-                // 创建新知识库
-                const response = await axios.post(`${API_BASE}/knowledge-bases/create`, values);
-                if (response.data.success) {
-                    message.success('知识库发布成功！');
-                    form.resetFields();
-                    onSuccess();
-                }
-            }
-        } catch (error) {
-            message.error(editingItem ? '更新失败' : '发布失败: ' + error.response?.data?.error || error.message);
-        } finally {
-            setLoading(false);
+  // 当面板打开时获取数据
+  useEffect(() => {
+    if (visible) {
+      fetchKnowledgeBases();
+      // 如果是编辑模式，填充表单
+      if (editingItem) {
+        form.setFieldsValue(editingItem);
+      } else {
+        form.resetFields();
+      }
+    }
+  }, [visible, editingItem, form]);
+
+  // 发布/更新知识库
+  const handlePublish = async (values) => {
+    setLoading(true);
+    try {
+      // 获取认证token
+      const token = localStorage.getItem('adminToken');
+      
+      // 检查是否有token
+      if (!token) {
+        message.error('请先登录');
+        setLoading(false);
+        return;
+      }
+      
+      let response;
+      if (editingItem) {
+        // 更新知识库 - 使用 put 方法
+        response = await axios.put(`${API_BASE}/knowledge-bases/${editingItem.id}`, values, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      } else {
+        // 创建知识库 - 使用 /create 路由
+        response = await axios.post(`${API_BASE}/knowledge-bases/create`, values, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      }
+      
+      if (response.data.success) {
+        message.success(editingItem ? '知识库更新成功！' : '知识库发布成功！');
+        form.resetFields();
+        onSuccess && onSuccess();
+      }
+    } catch (error) {
+      message.error((editingItem ? '更新' : '发布') + '失败: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 删除知识库
+  const handleDelete = async (id, title) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      
+      if (!token) {
+        message.error('请先登录');
+        return;
+      }
+      
+      await axios.delete(`${API_BASE}/knowledge-bases/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-    };
+      });
+      message.success(`已删除知识库: ${title}`);
+      fetchKnowledgeBases();
+      onSuccess && onSuccess();
+    } catch (error) {
+      message.error('删除失败: ' + (error.response?.data?.message || error.message));
+    }
+  };
 
-    const handleQuickActions = async (action) => {
-        if (!editingItem) return;
-
-        try {
-            switch (action) {
-                case 'toggleStatus':
-                    await axios.patch(`${API_BASE}/knowledge-bases/${editingItem.id}`, {
-                        isActive: !editingItem.isActive
-                    });
-                    message.success(`${editingItem.isActive ? '已禁用' : '已启用'}: ${editingItem.title}`);
-                    break;
-
-                case 'incrementViews':
-                    await axios.patch(`${API_BASE}/knowledge-bases/${editingItem.id}`, {
-                        viewCount: (editingItem.viewCount || 0) + 1
-                    });
-                    message.success('浏览数已增加');
-                    break;
-
-                case 'resetViews':
-                    await axios.patch(`${API_BASE}/knowledge-bases/${editingItem.id}`, {
-                        viewCount: 0
-                    });
-                    message.success('浏览数已重置');
-                    break;
-            }
-            onSuccess();
-        } catch (error) {
-            message.error('操作失败');
+  return (
+    <Modal
+      title={editingItem ? "编辑知识库" : "发布新知识库"}
+      open={visible}
+      onCancel={onClose}
+      footer={null}
+      width={600}
+      afterOpenChange={(open) => {
+        if (!open) {
+          form.resetFields();
         }
-    };
-
-    return (
-        <Modal
-            title={
-                <div>
-                    {editingItem ? (
-                        <Space>
-                            <EditOutlined />
-                            <span>编辑知识库</span>
-                            <span style={{ color: '#666', fontSize: '14px' }}>{editingItem.title}</span>
-                        </Space>
-                    ) : (
-                        <Space>
-                            <PlusOutlined />
-                            <span>发布新知识库</span>
-                        </Space>
-                    )}
-                </div>
-            }
-            open={visible}
-            onCancel={onClose}
-            footer={null}
-            width={700}
-            destroyOnClose
+      }}
+    >
+      <Form 
+        form={form} 
+        layout="vertical" 
+        onFinish={handlePublish}
+        initialValues={{
+          title: '',
+          description: '',
+          embedCode: ''
+        }}
+      >
+        <Form.Item
+          name="title"
+          label="知识库标题"
+          rules={[{ required: true, message: '请输入标题' }]}
         >
-            {editingItem && (
-                <>
-                    <div style={{
-                        background: '#f5f5f5',
-                        padding: '12px 16px',
-                        borderRadius: '6px',
-                        marginBottom: '16px'
-                    }}>
-                        <Space size="middle">
-                            <span><strong>ID:</strong> {editingItem.id}</span>
-                            <span><strong>创建时间:</strong> {new Date(editingItem.createdAt).toLocaleString()}</span>
-                            <span><strong>浏览数:</strong> {editingItem.viewCount || 0}</span>
-                        </Space>
-                    </div>
+          <Input placeholder="例如：产品使用手册" />
+        </Form.Item>
 
-                    <div style={{ marginBottom: '16px' }}>
-                        <Space>
-                            <Button
-                                size="small"
-                                onClick={() => handleQuickActions('toggleStatus')}
-                                type={editingItem.isActive === false ? 'primary' : 'default'}
-                            >
-                                {editingItem.isActive === false ? '启用' : '禁用'}
-                            </Button>
-                            <Button
-                                size="small"
-                                onClick={() => handleQuickActions('incrementViews')}
-                            >
-                                增加浏览数
-                            </Button>
-                            <Button
-                                size="small"
-                                onClick={() => handleQuickActions('resetViews')}
-                            >
-                                重置浏览数
-                            </Button>
-                        </Space>
-                    </div>
-                    <Divider />
-                </>
+        <Form.Item
+          name="description"
+          label="描述"
+        >
+          <Input.TextArea 
+            placeholder="描述这个知识库的内容和用途"
+            rows={3}
+          />
+        </Form.Item>
+
+        <Form.Item
+          name="embedCode"
+          label="嵌入代码"
+          rules={[{ required: true, message: '请粘贴RAGFlow提供的嵌入代码' }]}
+        >
+          <Input.TextArea 
+            placeholder='粘贴 <iframe src="http://localhost/next-chats/share?shared_id=..." ...></iframe>'
+            rows={6}
+          />
+        </Form.Item>
+
+        <Form.Item>
+          <Button type="primary" htmlType="submit" loading={loading} block>
+            {editingItem ? "更新知识库" : "发布知识库"}
+          </Button>
+        </Form.Item>
+      </Form>
+
+      {knowledgeBases.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <h3>已有知识库</h3>
+          <List
+            dataSource={knowledgeBases}
+            renderItem={(kb) => (
+              <List.Item
+                actions={[
+                  <EditOutlined 
+                    key="edit" 
+                    onClick={() => {
+                      form.setFieldsValue(kb);
+                    }} 
+                  />,
+                  <DeleteOutlined 
+                    key="delete" 
+                    onClick={() => {
+                      if (window.confirm(`确定要删除"${kb.title}"吗？`)) {
+                        handleDelete(kb.id, kb.title);
+                      }
+                    }} 
+                  />
+                ]}
+              >
+                <List.Item.Meta
+                  title={kb.title}
+                  description={kb.description}
+                />
+              </List.Item>
             )}
-
-            <Form
-                form={form}
-                layout="vertical"
-                onFinish={handleSubmit}
-                initialValues={{
-                    isActive: true
-                }}
-            >
-                <Form.Item
-                    name="title"
-                    label="知识库标题"
-                    rules={[
-                        { required: true, message: '请输入标题' },
-                        { min: 2, message: '标题至少2个字符' },
-                        { max: 100, message: '标题不能超过100个字符' }
-                    ]}
-                >
-                    <Input
-                        placeholder="例如：产品使用手册"
-                        showCount
-                        maxLength={100}
-                    />
-                </Form.Item>
-
-                <Form.Item
-                    name="description"
-                    label="描述"
-                    rules={[
-                        { max: 500, message: '描述不能超过500个字符' }
-                    ]}
-                >
-                    <Input.TextArea
-                        placeholder="描述这个知识库的内容和用途..."
-                        rows={3}
-                        showCount
-                        maxLength={500}
-                    />
-                </Form.Item>
-
-                <Form.Item
-                    name="embedCode"
-                    label="嵌入代码"
-                    rules={[
-                        { required: true, message: '请粘贴RAGFlow提供的嵌入代码' },
-                        {
-                            validator: (_, value) => {
-                                if (!value) return Promise.resolve();
-                                if (!value.includes('<iframe') || !value.includes('src=')) {
-                                    return Promise.reject(new Error('请粘贴有效的iframe嵌入代码'));
-                                }
-                                return Promise.resolve();
-                            }
-                        }
-                    ]}
-                >
-                    <Input.TextArea
-                        placeholder='粘贴完整的iframe代码，例如：&lt;iframe src="http://localhost/next-chats/share?shared_id=..." style="width:100%;height:600px" frameborder="0"&gt;&lt;/iframe&gt;'
-                        rows={6}
-                        style={{ fontFamily: 'monospace', fontSize: '12px' }}
-                    />
-                </Form.Item>
-
-                <Form.Item
-                    name="iconUrl"
-                    label="图标URL（可选）"
-                    rules={[
-                        {
-                            type: 'url',
-                            message: '请输入有效的URL地址'
-                        }
-                    ]}
-                >
-                    <Input placeholder="https://example.com/icon.png" />
-                </Form.Item>
-
-                <Form.Item
-                    name="isActive"
-                    label="状态"
-                    valuePropName="checked"
-                >
-                    <Switch
-                        checkedChildren="启用"
-                        unCheckedChildren="禁用"
-                    />
-                </Form.Item>
-
-                <Form.Item>
-                    <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={loading}
-                        block
-                        size="large"
-                    >
-                        {editingItem ? '更新知识库' : '发布知识库'}
-                    </Button>
-                </Form.Item>
-            </Form>
-
-            {!editingItem && (
-                <div style={{
-                    marginTop: '16px',
-                    padding: '12px',
-                    background: '#f0f7ff',
-                    border: '1px solid #91d5ff',
-                    borderRadius: '6px'
-                }}>
-                    <h4 style={{ margin: '0 0 8px 0', color: '#1890ff' }}>💡 使用说明</h4>
-                    <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', color: '#666' }}>
-                        <li>在RAGFlow中创建聊天助手并获取嵌入代码</li>
-                        <li>复制完整的iframe代码粘贴到"嵌入代码"字段</li>
-                        <li>填写标题和描述，方便用户识别</li>
-                        <li>可选择添加图标URL美化显示</li>
-                        <li>发布后用户即可在知识库中心访问</li>
-                    </ol>
-                </div>
-            )}
-        </Modal>
-    );
+          />
+        </div>
+      )}
+    </Modal>
+  );
 };
 
 export default AdminPanel;

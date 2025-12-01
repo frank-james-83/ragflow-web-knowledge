@@ -1,95 +1,69 @@
-// frontend/src/Login.jsx
+// frontend/src/Login.jsx (或类似的登录组件)
 import React, { useState } from 'react';
-import { Form, Input, Button, Card, message, Layout, Typography } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import './Login.css';
+import { Form, Input, Button, message, Modal } from 'antd';
+import axios from 'axios';
 
-const { Title } = Typography;
-const { Content } = Layout;
+// const API_BASE = 'http://localhost:3001/api';
+const API_BASE = '/sidel/api';
 
-const Login = ({ onLogin }) => {
-    const [loading, setLoading] = useState(false);
+const Login = ({ onLogin, onCancel }) => {
+  const [loading, setLoading] = useState(false);
 
-    const handleLogin = async (values) => {
-        setLoading(true);
-        try {
-            // 简化登录 - 在实际项目中这里应该调用后端API验证
-            if (values.username === 'admin' && values.password === 'admin123') {
-                localStorage.setItem('adminToken', 'logged-in');
-                localStorage.setItem('adminUser', JSON.stringify({
-                    username: 'admin',
-                    role: 'admin'
-                }));
-                message.success('登录成功！');
-                onLogin();
-            } else {
-                message.error('用户名或密码错误');
-            }
-        } catch (error) {
-            message.error('登录失败');
-        } finally {
-            setLoading(false);
-        }
-    };
+  const handleSubmit = async (values) => {
+    setLoading(true);
+    try {
+      // 调用真实的登录接口
+      const response = await axios.post(`${API_BASE}/auth/login`, {
+        username: values.username,
+        password: values.password
+      });
 
-    return (
-        <Layout className="login-layout">
-            <Content className="login-content">
-                <Card className="login-card">
-                    <div className="login-header">
-                        <Title level={2}>🔐 管理员登录</Title>
-                        <p>请输入管理员凭据访问管理功能</p>
-                    </div>
+      if (response.data.success) {
+        // 保存 token 和用户信息
+        localStorage.setItem('adminToken', response.data.token);
+        localStorage.setItem('adminUser', JSON.stringify(response.data.user));
+        message.success('登录成功');
+        onLogin();
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        message.error('用户名或密码错误');
+      } else {
+        message.error('登录失败: ' + (error.response?.data?.message || '服务器错误'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-                    <Form
-                        name="login"
-                        onFinish={handleLogin}
-                        autoComplete="off"
-                    >
-                        <Form.Item
-                            name="username"
-                            rules={[{ required: true, message: '请输入用户名' }]}
-                        >
-                            <Input
-                                prefix={<UserOutlined />}
-                                placeholder="用户名"
-                                size="large"
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="password"
-                            rules={[{ required: true, message: '请输入密码' }]}
-                        >
-                            <Input.Password
-                                prefix={<LockOutlined />}
-                                placeholder="密码"
-                                size="large"
-                            />
-                        </Form.Item>
-
-                        <Form.Item>
-                            <Button
-                                type="primary"
-                                htmlType="submit"
-                                loading={loading}
-                                block
-                                size="large"
-                            >
-                                登录
-                            </Button>
-                        </Form.Item>
-                    </Form>
-
-                    <div className="login-tip">
-                        <p><strong>测试账号:</strong></p>
-                        <p>用户名: admin</p>
-                        <p>密码: admin123</p>
-                    </div>
-                </Card>
-            </Content>
-        </Layout>
-    );
+  return (
+    <Modal
+      title="管理员登录"
+      open={true}
+      footer={null}
+      onCancel={onCancel}
+    >
+      <Form onFinish={handleSubmit}>
+        <Form.Item
+          name="username"
+          rules={[{ required: true, message: '请输入用户名' }]}
+        >
+          <Input placeholder="用户名或邮箱" />
+        </Form.Item>
+        <Form.Item
+          name="password"
+          rules={[{ required: true, message: '请输入密码' }]}
+        >
+          <Input.Password placeholder="密码" />
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" loading={loading} block>
+            登录
+          </Button>
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
 };
 
 export default Login;

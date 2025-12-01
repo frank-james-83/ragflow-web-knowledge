@@ -2,7 +2,9 @@
 const { PrismaClient } = require('@prisma/client');
 
 async function testConnection() {
-    const prisma = new PrismaClient();
+    const prisma = new PrismaClient({
+        log: ['query', 'info', 'warn', 'error']
+    });
 
     try {
         console.log('🔍 测试数据库连接...');
@@ -30,11 +32,14 @@ async function testConnection() {
             console.log('💡 数据库中没有记录，可以添加测试数据');
         }
 
-        await prisma.$disconnect();
-        console.log('🎉 数据库测试完成!');
-
     } catch (error) {
-        console.error('❌ 数据库连接失败:', error.message);
+        console.error('❌ 数据库连接失败:');
+        console.error('- Message:', error.message);
+        console.error('- Code:', error.code);
+        console.error('- Stack:', error.stack);
+    } finally {
+        await prisma.$disconnect();
+        console.log('🔌 数据库连接已关闭');
     }
 }
 

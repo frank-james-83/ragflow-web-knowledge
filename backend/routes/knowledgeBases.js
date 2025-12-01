@@ -108,7 +108,7 @@ router.get('/:id', async (req, res) => {
 // 创建知识库
 router.post('/create', async (req, res) => {
   console.log('🔍 开始处理创建请求...');
-
+  console.log('🔐 req.user 内容:', JSON.stringify(req.user, null, 2));
   try {
     const {
       title,
@@ -129,11 +129,29 @@ router.post('/create', async (req, res) => {
       });
     }
 
-    console.log('🔗 尝试连接数据库...');
+    // 从请求中获取用户信息（假设通过认证中间件添加到req.user）
+    let userId = null;
+    
+    // 如果使用 JWT token 认证，用户信息通常在 req.user 中
+    if (req.user && req.user.id) {
+      userId = req.user.id;
+    } 
+    // 或者如果用户信息在 req.auth 中
+    else if (req.auth && req.auth.userId) {
+      userId = req.auth.userId;
+    }
+    // 或者从 headers 中获取（如果前端发送了用户ID）
+    else if (req.headers['x-user-id']) {
+      userId = req.headers['x-user-id'];
+    }
 
-    // 使用真实用户ID
-    const existingUserId = '39f3883ec4e611f096e996fe0646053a';
-    console.log('👤 使用用户ID:', existingUserId);
+    // 如果仍然没有用户ID，则使用默认值（仅用于开发环境）
+    if (!userId) {
+      console.warn('⚠️ 未找到用户ID，使用默认值');
+      userId = '39f3883ec4e611f096e996fe0646053a'; // 仅用于开发环境
+    }
+
+    console.log('👤 使用用户ID:', userId);
 
     // 检查标题是否已存在
     const existing = await prisma.knowledgeBasePublish.findFirst({
@@ -156,7 +174,7 @@ router.post('/create', async (req, res) => {
         embedCode: embedCode.trim(),
         ragflowKbId: 'default-kb-id',
         ragflowChatflowId: 'default-chat-id',
-        createdBy: existingUserId,
+        createdBy: userId, // 使用从请求中获取的用户ID
         isActive: isActive !== false,
         viewCount: 0,
         createdAt: new Date(),
@@ -181,6 +199,8 @@ router.post('/create', async (req, res) => {
 
     if (error.code === 'P2002') {
       errorMessage = '数据冲突，请检查输入内容';
+    } else if (error.code === 'P2003') {
+      errorMessage = '外键约束违反，用户不存在';
     }
 
     res.status(500).json({
